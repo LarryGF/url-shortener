@@ -1,31 +1,15 @@
 from typing import Optional
 from fastapi import FastAPI, Response, status, Path
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel, BaseSettings
 import hashlib
 import base64
 import json
 from pathlib import Path
-
 app = FastAPI()
 
 if not Path('/app/urls.json').exists():
-    with open('/app/urls.json', 'w')as file:
+    with open('/app/urls.json', 'w') as file:
         json.dump({}, file)
-    internal_url_db = {}
-else:
-    with open('/app/urls.json')as file:
-        internal_url_db = json.load(file)
-
-
-class Settings(BaseSettings):
-    user: Optional[str] = "mysql"
-    password: Optional[str] = "12345678"
-    hostname: Optional[str] = "mysql"
-    db: Optional[str] = "db"
-
-
-settings = Settings()
 
 
 def create_short_link(original_url: str):
@@ -36,6 +20,8 @@ def create_short_link(original_url: str):
 
 
 def lookup(identifier: str):
+    with open('/app/urls.json') as file:
+        internal_url_db = json.load(file)
     if identifier in internal_url_db:
         return internal_url_db.get(identifier)
     else:
@@ -64,24 +50,21 @@ def get_url(response: Response, identifier: Optional[str] = None):
 @app.post("/api/v1/shorten/{url:path}")
 def read_item(response: Response, url: Optional[str] = None):
     if url:
+        with open('/app/urls.json') as file:
+            internal_url_db = json.load(file)
         if url.split(':')[0].startswith('http'):
             short = create_short_link(url)
-            internal_url_db.setdefault(short, url)
+            internal_url_db[short] = url
             with open('/app/urls.json', 'w') as file:
                 json.dump(internal_url_db, file)
-            # result = mycol.insert_one(
-            #     {"original": url, "shortened": short, "message": 'Succesfully shortened'})
-            # print(result)
+
             response.status_code = status.HTTP_200_OK
             return {"original": url, "shortened": short, "message": 'Succesfully shortened'}
         else:
             short = create_short_link(f'https://{url}')
-            internal_url_db.setdefault(short, url)
+            internal_url_db[short] = url
             with open('/app/urls.json', 'w') as file:
                 json.dump(internal_url_db, file)
-            # result = mycol.insert_one(
-            #     {"original": url, "shortened": short, "message": 'Succesfully shortened'})
-            # print(result)
             response.status_code = status.HTTP_200_OK
             return {"original": url, "shortened": short, "message": 'Provided url did not contain protocol, defaulting to https'}
     else:
@@ -96,7 +79,7 @@ def redirect(response: Response, identifier: Optional[str] = None):
     if identifier:
         url = lookup(identifier)
         if url:
-           return RedirectResponse(url=url)
+            return RedirectResponse(url=url)
 
         else:
             response.status_code = status.HTTP_400_BAD_REQUEST
@@ -113,4 +96,6 @@ def redirect(response: Response, identifier: Optional[str] = None):
 
 @app.get("/api/v1/all")
 def get_all():
+    with open('/app/urls.json') as file:
+        internal_url_db = json.load(file)
     return internal_url_db
