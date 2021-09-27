@@ -2,20 +2,20 @@ version: "3.1"
 services:
   fastapi:
     build: api
-    environment:     
-      USER: '${MONGODB_USERNAME:-mongodb}'
-      PASSWORD: '${MONGODB_PASSWORD:-12345678}'
-      DB: '${MONGODB_DATABASE:-db}'
-      HOSTNAME: '${HOSTNAME:-mongodb}'
+    restart: always
     ports:
       - "8080:80"
     networks:
       - app-tier
+    volumes:
+      - url-persistence:/app/data/
+      
     
 
   
  
-  
+volumes:
+  url-persistence:
 networks:
   app-tier:
     driver: bridge
