@@ -96,7 +96,7 @@ def read_item(response: Response, request: Request, url: Optional[str] = None):
                 response.status_code = status.HTTP_200_OK
                 # This is commented so the reply complies with the requirement, but I consider this gives further insight on what is happening
                 # return {"original": url, "shortened": short, "message": 'Succesfully shortened'}
-                return f'{request.base_url}:{short}'
+                return f'{request.base_url}{short}'
         else:
             short = create_short_link(f'https://{url}')
             internal_url_db[short] = url
@@ -105,7 +105,7 @@ def read_item(response: Response, request: Request, url: Optional[str] = None):
             response.status_code = status.HTTP_200_OK
             # This is commented so the reply complies with the requirement, but I consider this gives further insight on what is happening
             # return {"original": url, "shortened": short, "message": 'Provided url did not contain protocol, defaulting to https'}
-            return f'{request.base_url}:{short}'
+            return f'{request.base_url}{short}'
 
     else:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -154,4 +154,4 @@ def get_all():
 
 @app.get("/")
 def get_root(request: Request):
-    return f'Go to {request.base_url}/docs for the documentation'
+    return f'Go to {request.base_url}docs for the documentation'
