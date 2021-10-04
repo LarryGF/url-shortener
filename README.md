@@ -1,6 +1,6 @@
 # URL Shortener
 
-This repository includes the code necessary to deploy an _url shortener_ service. 
+This repository includes the code necessary to deploy a _url shortener_ service. 
 
 The _API_ was developed using _Python_, specifically using _fastapi_. The code and the _Dockerfile_ to containerize it are present inside the _api_ folder. 
 
