@@ -5,14 +5,16 @@ import hashlib
 import base64
 import json
 from pathlib import Path
+from mydb import JsonDB as Database
 
 app = FastAPI()
+DATA_PATH = 'data/urls.json'
 
 # Using the urls.json file was an easy way to persist state between deployments without having to deploy a DB or any additional code, the R/W operations
 # might be a little taxing on performance, so for a second iteration it wouldbe good to use a DB (for this specific scenario MongoDB should work fine)
-if not Path('data/urls.json').exists():
+if not Path(DATA_PATH).exists():
     Path('data').mkdir(exist_ok=True)
-    with open('data/urls.json', 'w') as file:
+    with open(DATA_PATH, 'w') as file:
         json.dump({}, file)
 
 
@@ -24,12 +26,8 @@ def create_short_link(original_url: str):
 
 
 def lookup(identifier: str):
-    with open('/app/data/urls.json') as file:
-        internal_url_db = json.load(file)
-    if identifier in internal_url_db:
-        return internal_url_db.get(identifier)
-    else:
-        return None
+    with Database(DATA_PATH) as db:
+        return db.lookup(identifier, default=None)
 
 
 @app.get("/api/v1/lookup/{identifier:str}")
@@ -80,32 +78,29 @@ def read_item(response: Response, request: Request, url: Optional[str] = None):
         If no URL is passed, it will return an error message with *code 400*
     """
     if url:
-        with open('/app/data/urls.json') as file:
-            internal_url_db = json.load(file)
-        if url.split(':')[0].startswith('http'):
-            short = create_short_link(url)
-            if short in internal_url_db:
-                return {
-                    'Message': 'We already have that url in the database'
-                }
+        with Database(DATA_PATH) as db:
+            if url.split(':')[0].startswith('http'):
+                short = create_short_link(url)
+                if db.exist(short):
+                    return {
+                        'Message': 'We already have that url in the database'
+                    }
+                else:
+                    db.set(short, url)
+
+                    response.status_code = status.HTTP_200_OK
+                    # This is commented so the reply complies with the requirement, but I consider this gives further insight on what is happening
+                    # return {"original": url, "shortened": short, "message": 'Succesfully shortened'}
+                    return f'{request.base_url}{short}'
             else:
-                internal_url_db[short] = url
-                with open('/app/data/urls.json', 'w') as file:
-                    json.dump(internal_url_db, file)
+                short = create_short_link(f'https://{url}')
+
+                db.set(short, url)
 
                 response.status_code = status.HTTP_200_OK
                 # This is commented so the reply complies with the requirement, but I consider this gives further insight on what is happening
-                # return {"original": url, "shortened": short, "message": 'Succesfully shortened'}
+                # return {"original": url, "shortened": short, "message": 'Provided url did not contain protocol, defaulting to https'}
                 return f'{request.base_url}{short}'
-        else:
-            short = create_short_link(f'https://{url}')
-            internal_url_db[short] = url
-            with open('/app/data/urls.json', 'w') as file:
-                json.dump(internal_url_db, file)
-            response.status_code = status.HTTP_200_OK
-            # This is commented so the reply complies with the requirement, but I consider this gives further insight on what is happening
-            # return {"original": url, "shortened": short, "message": 'Provided url did not contain protocol, defaulting to https'}
-            return f'{request.base_url}{short}'
 
     else:
         response.status_code = status.HTTP_400_BAD_REQUEST
@@ -147,8 +142,8 @@ def get_all():
 
         It is included mostly for debugging purposes.
     """
-    with open('data/urls.json') as file:
-        internal_url_db = json.load(file)
+    with Database(DATA_PATH) as db:
+        internal_url_db = db._db
     return internal_url_db
 
 
